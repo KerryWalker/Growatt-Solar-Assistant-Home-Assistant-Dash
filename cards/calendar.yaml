@@ -1,0 +1,32 @@
+# Atomic Calendar Revive - Family iCloud Calendars
+#
+# Prerequisites:
+#   - Atomic Calendar Revive installed via HACS
+#   - CalDAV integration configured for each iCloud account
+#     URL: https://caldav.icloud.com/.well-known/caldav
+#     Use app-specific passwords from appleid.apple.com
+#
+# Update entity IDs and colours to match your calendars.
+
+type: custom:atomic-calendar-revive
+name: Family Calendar
+entities:
+  - entity: calendar.family
+    color: '#2ECC71'
+  - entity: calendar.person1
+    color: '#3498DB'
+  - entity: calendar.person2
+    color: '#E74C3C'
+  - entity: calendar.person3
+    color: '#F39C12'
+  - entity: calendar.person4
+    color: '#9B59B6'
+maxDaysToShow: 14
+showLocation: true
+showMonth: true
+dimFinishedEvents: true
+finishedEventOpacity: 0.6
+showCurrentEventLine: true
+showProgressBar: true
+sortByStartTime: true
+showFullDayProgress: true

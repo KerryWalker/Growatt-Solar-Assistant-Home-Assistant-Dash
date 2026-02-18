@@ -1,0 +1,116 @@
+type: custom:html-template-card
+ignore_line_breaks: true
+content: |
+  {% set solar = states('sensor.growatt_sph_pv_total') | float(0) %}
+  {% set batt_pct = states('sensor.growatt_sph_battery_state_of_charge') | float(0) %}
+  {% set batt_w = states('sensor.growatt_sph_battery_power') | float(0) %}
+  {% set grid_w = states('sensor.growatt_sph_grid_power') | float(0) %}
+  {% set load_w = states('sensor.growatt_sph_load_power') | float(0) %}
+
+  {% set solar_max = 7000 %}
+  {% set batt_charge_max = 5000 %}
+  {% set batt_discharge_max = 3500 %}
+  {% set grid_import_max = 8000 %}
+  {% set grid_export_max = 3500 %}
+  {% set load_max = 8000 %}
+
+  {% set PI = 3.14159265359 %}
+  {% set ARC_START = 225 %}
+  {% set ARC_SWEEP = 270 %}
+  {% set ARC_END = 495 %}
+
+  {% macro clamp(v) %}{{ [0.0, [1.0, v | float] | min] | max }}{% endmacro %}
+
+  {% macro arcpath(cx, cy, r, start, end) %}
+    {% set sx = cx + r * cos((start - 90) * PI / 180) %}
+    {% set sy = cy + r * sin((start - 90) * PI / 180) %}
+    {% set ex = cx + r * cos((end - 90) * PI / 180) %}
+    {% set ey = cy + r * sin((end - 90) * PI / 180) %}
+    {% if (end - start) > 180 %}{% set lg = 1 %}{% else %}{% set lg = 0 %}{% endif %}
+    M{{ sx }},{{ sy }} A{{ r }},{{ r }} 0 {{ lg }} 1 {{ ex }},{{ ey }}
+  {% endmacro %}
+
+  {% macro track(cx, cy, r) %}{{ arcpath(cx, cy, r, ARC_START, ARC_END) }}{% endmacro %}
+
+  {% macro valuearc(cx, cy, r, frac, direction) %}
+    {% set f = [0.005, [1.0, frac | float] | min] | max %}
+    {% set sw = ARC_SWEEP * f %}
+    {% if direction == 'ccw' %}
+      {{ arcpath(cx, cy, r, ARC_END - sw, ARC_END) }}
+    {% else %}
+      {{ arcpath(cx, cy, r, ARC_START, ARC_START + sw) }}
+    {% endif %}
+  {% endmacro %}
+
+  {% macro gauge(cx, cy, r, frac, direction, color, glow, value_text, value_color, label, sub_text, sub_color) %}
+    <path d="{{ track(cx, cy, r) }}" fill="none" stroke="#3a3a3c" stroke-width="12" opacity="0.25"/>
+    {% if frac | float > 0.003 %}
+    <path d="{{ valuearc(cx, cy, r, frac, direction) }}" fill="none" stroke="{{ color }}" stroke-width="12" stroke-linecap="round" style="filter:{{ glow }}"/>
+    {% endif %}
+    <text x="{{ cx }}" y="{{ cy - 2 }}" text-anchor="middle" font-size="28" font-weight="700" fill="{{ value_color }}" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">{{ value_text }}</text>
+    <text x="{{ cx }}" y="{{ cy + 18 }}" text-anchor="middle" font-size="12" font-weight="600" fill="#888" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">{{ label }}</text>
+    {% if sub_text %}
+    <text x="{{ cx }}" y="{{ cy + 34 }}" text-anchor="middle" font-size="13" font-weight="600" fill="{{ sub_color }}" font-family="-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif">{{ sub_text }}</text>
+    {% endif %}
+  {% endmacro %}
+
+  {% set charging = batt_w >= 0 %}
+  {% set importing = grid_w >= 0 %}
+
+  {% set sf = clamp(solar / solar_max) | float %}
+  {% set lf = clamp(load_w / load_max) | float %}
+
+  {% if charging %}
+    {% set bpf = clamp(batt_w / batt_charge_max) | float %}
+    {% set b_color = '#4CAF50' %}
+    {% set b_glow = 'drop-shadow(0 0 4px rgba(76,175,80,0.3))' %}
+    {% set b_dir = 'cw' %}
+    {% set bw_tcol = '#4CAF50' %}
+  {% else %}
+    {% set bpf = clamp((-batt_w) / batt_discharge_max) | float %}
+    {% set b_color = 'orange' %}
+    {% set b_glow = 'drop-shadow(0 0 4px rgba(255,165,0,0.35))' %}
+    {% set b_dir = 'ccw' %}
+    {% set bw_tcol = 'orange' %}
+  {% endif %}
+
+  {% if grid_w | abs < 5 %}
+    {% set gf = 0 %}
+    {% set g_color = '#666' %}
+    {% set g_glow = 'none' %}
+    {% set g_dir = 'cw' %}
+    {% set g_tcol = '#666' %}
+  {% elif importing %}
+    {% set gf = clamp(grid_w / grid_import_max) | float %}
+    {% set g_color = '#ef5350' %}
+    {% set g_glow = 'drop-shadow(0 0 4px rgba(239,83,80,0.3))' %}
+    {% set g_dir = 'cw' %}
+    {% set g_tcol = '#ef5350' %}
+  {% else %}
+    {% set gf = clamp((-grid_w) / grid_export_max) | float %}
+    {% set g_color = '#5fb6ad' %}
+    {% set g_glow = 'drop-shadow(0 0 4px rgba(95,182,173,0.3))' %}
+    {% set g_dir = 'ccw' %}
+    {% set g_tcol = '#5fb6ad' %}
+  {% endif %}
+
+  <svg viewBox="0 0 420 420" style="width:100%;display:block;" xmlns="http://www.w3.org/2000/svg">
+
+    <!-- Top left: Load -->
+    {{ gauge(105, 105, 80, lf, 'cw', '#42A5F5', 'drop-shadow(0 0 4px rgba(66,165,245,0.3))', (load_w | round(0) | int | string) + ' W', '#42A5F5', 'Load', '', '') }}
+
+    <!-- Top right: Solar -->
+    {{ gauge(315, 105, 80, sf, 'cw', 'orange', 'drop-shadow(0 0 4px rgba(255,165,0,0.35))', (solar | round(0) | int | string) + ' W', 'orange', 'Solar PV', '', '') }}
+
+    <!-- Bottom left: Grid -->
+    {{ gauge(105, 315, 80, gf, g_dir, g_color, g_glow, (grid_w | abs | round(0) | int | string) + ' W', g_tcol, 'Grid', ('importing' if importing and grid_w | abs >= 5 else ('exporting' if not importing and grid_w | abs >= 5 else '')), g_tcol) }}
+
+    <!-- Bottom right: Battery -->
+    {{ gauge(315, 315, 80, bpf, b_dir, b_color, b_glow, (batt_w | abs | round(0) | int | string) + ' W', bw_tcol, 'Battery', (batt_pct | round(0) | int | string) + '%', '#E91E63') }}
+
+  </svg>
+card_mod:
+  style: |
+    ha-card {
+      --ha-card-background: var(--card-background-color);
+    }

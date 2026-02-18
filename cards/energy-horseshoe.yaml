@@ -1,0 +1,168 @@
+# Concentric Energy Horseshoe Gauge
+#
+# Five rings: Solar, Battery Level, Battery Power, Grid, Load
+# Uses custom:html-template-card (Lovelace HTML Jinja2 Template card)
+#
+# To adapt to your inverter:
+#   1. Change the entity IDs in the {% set ... %} block below
+#   2. Adjust the max values to match your system
+
+type: custom:html-template-card
+ignore_line_breaks: true
+content: |
+  {% set solar = states('sensor.growatt_sph_pv_total') | float(0) %}
+  {% set batt_pct = states('sensor.growatt_sph_battery_state_of_charge') | float(0) %}
+  {% set batt_w = states('sensor.growatt_sph_battery_power') | float(0) %}
+  {% set grid_w = states('sensor.growatt_sph_grid_power') | float(0) %}
+  {% set load_w = states('sensor.growatt_sph_load_power') | float(0) %}
+
+  {% set solar_max = 7000 %}
+  {% set batt_charge_max = 5000 %}
+  {% set batt_discharge_max = 3500 %}
+  {% set grid_import_max = 8000 %}
+  {% set grid_export_max = 3500 %}
+  {% set load_max = 8000 %}
+
+  {% set PI = 3.14159265359 %}
+  {% set ARC_START = 225 %}
+  {% set ARC_SWEEP = 270 %}
+  {% set ARC_END = 495 %}
+  {% set CX = 210 %}
+  {% set CY = 200 %}
+
+  {% macro clamp(v) %}{{ [0.0, [1.0, v | float] | min] | max }}{% endmacro %}
+
+  {% set sf = clamp(solar / solar_max) | float %}
+  {% set bf = clamp(batt_pct / 100) | float %}
+
+  {% set charging = batt_w >= 0 %}
+  {% if charging %}
+    {% set bpf = clamp(batt_w / batt_charge_max) | float %}
+  {% else %}
+    {% set bpf = clamp((-batt_w) / batt_discharge_max) | float %}
+  {% endif %}
+
+  {% set importing = grid_w >= 0 %}
+  {% if importing %}
+    {% set gf = clamp(grid_w / grid_import_max) | float %}
+  {% else %}
+    {% set gf = clamp((-grid_w) / grid_export_max) | float %}
+  {% endif %}
+
+  {% set lf = clamp(load_w / load_max) | float %}
+
+  {% set R_SOLAR = 175 %}
+  {% set R_BLEVEL = 155 %}
+  {% set R_BPOWER = 135 %}
+  {% set R_GRID = 115 %}
+  {% set R_LOAD = 95 %}
+
+  {% macro arcpath(r, start, end) %}
+    {% set sx = CX + r * cos((start - 90) * PI / 180) %}
+    {% set sy = CY + r * sin((start - 90) * PI / 180) %}
+    {% set ex = CX + r * cos((end - 90) * PI / 180) %}
+    {% set ey = CY + r * sin((end - 90) * PI / 180) %}
+    {% if (end - start) > 180 %}{% set lg = 1 %}{% else %}{% set lg = 0 %}{% endif %}
+    M{{ sx }},{{ sy }} A{{ r }},{{ r }} 0 {{ lg }} 1 {{ ex }},{{ ey }}
+  {% endmacro %}
+
+  {% macro track(r) %}{{ arcpath(r, ARC_START, ARC_END) }}{% endmacro %}
+
+  {% macro valuearc(r, frac, direction) %}
+    {% set f = [0.003, [1.0, frac | float] | min] | max %}
+    {% set sw = ARC_SWEEP * f %}
+    {% if direction == 'ccw' %}
+      {{ arcpath(r, ARC_END - sw, ARC_END) }}
+    {% else %}
+      {{ arcpath(r, ARC_START, ARC_START + sw) }}
+    {% endif %}
+  {% endmacro %}
+
+  {% if charging %}
+    {% set bp_color = '#4CAF50' %}
+    {% set bp_glow = 'drop-shadow(0 0 4px rgba(76,175,80,0.3))' %}
+    {% set bp_dir = 'cw' %}
+    {% set bw_tcol = '#4CAF50' %}
+  {% else %}
+    {% set bp_color = 'orange' %}
+    {% set bp_glow = 'drop-shadow(0 0 4px rgba(255,165,0,0.35))' %}
+    {% set bp_dir = 'ccw' %}
+    {% set bw_tcol = 'orange' %}
+  {% endif %}
+
+  {% if grid_w | abs < 5 %}
+    {% set g_color = '#666' %}
+    {% set g_glow = 'none' %}
+    {% set g_dir = 'cw' %}
+    {% set g_tcol = '#666' %}
+  {% elif importing %}
+    {% set g_color = '#ef5350' %}
+    {% set g_glow = 'drop-shadow(0 0 4px rgba(239,83,80,0.3))' %}
+    {% set g_dir = 'cw' %}
+    {% set g_tcol = '#ef5350' %}
+  {% else %}
+    {% set g_color = '#5fb6ad' %}
+    {% set g_glow = 'drop-shadow(0 0 4px rgba(95,182,173,0.3))' %}
+    {% set g_dir = 'ccw' %}
+    {% set g_tcol = '#5fb6ad' %}
+  {% endif %}
+
+  <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;">
+
+    <div style="display:flex;justify-content:space-around;align-items:center;padding:0 10px 2px 10px;">
+      <div style="text-align:center;flex:1;">
+        <div style="font-size:10px;font-weight:600;letter-spacing:1px;color:#888;">SOLAR</div>
+        <div style="font-size:22px;font-weight:700;color:orange;">{{ solar | round(0) | int }} W</div>
+      </div>
+      <div style="text-align:center;flex:1;">
+        <div style="font-size:10px;font-weight:600;letter-spacing:1px;color:#888;">BATTERY</div>
+        <div style="font-size:22px;font-weight:700;color:#E91E63;">{{ batt_pct | round(0) | int }}%</div>
+      </div>
+      <div style="text-align:center;flex:1;">
+        <div style="font-size:10px;font-weight:600;letter-spacing:1px;color:#888;">LOAD</div>
+        <div style="font-size:22px;font-weight:700;color:#42A5F5;">{{ load_w | round(0) | int }} W</div>
+      </div>
+    </div>
+
+    <svg viewBox="10 10 400 330" style="width:100%;display:block;">
+
+      <path d="{{ track(R_SOLAR) }}" fill="none" stroke="#3a3a3c" stroke-width="14" opacity="0.25"/>
+      <path d="{{ track(R_BLEVEL) }}" fill="none" stroke="#3a3a3c" stroke-width="14" opacity="0.25"/>
+      <path d="{{ track(R_BPOWER) }}" fill="none" stroke="#3a3a3c" stroke-width="14" opacity="0.25"/>
+      <path d="{{ track(R_GRID) }}" fill="none" stroke="#3a3a3c" stroke-width="14" opacity="0.25"/>
+      <path d="{{ track(R_LOAD) }}" fill="none" stroke="#3a3a3c" stroke-width="14" opacity="0.25"/>
+
+      {% if sf > 0.003 %}
+      <path d="{{ valuearc(R_SOLAR, sf, 'cw') }}" fill="none" stroke="orange" stroke-width="14" stroke-linecap="round" style="filter:drop-shadow(0 0 4px rgba(255,165,0,0.35))"/>
+      {% endif %}
+
+      {% if bf > 0.003 %}
+      <path d="{{ valuearc(R_BLEVEL, bf, 'cw') }}" fill="none" stroke="#E91E63" stroke-width="14" stroke-linecap="round" style="filter:drop-shadow(0 0 4px rgba(233,30,99,0.3))"/>
+      {% endif %}
+
+      {% if bpf > 0.003 %}
+      <path d="{{ valuearc(R_BPOWER, bpf, bp_dir) }}" fill="none" stroke="{{ bp_color }}" stroke-width="14" stroke-linecap="round" style="filter:{{ bp_glow }}"/>
+      {% endif %}
+
+      {% if gf > 0.003 %}
+      <path d="{{ valuearc(R_GRID, gf, g_dir) }}" fill="none" stroke="{{ g_color }}" stroke-width="14" stroke-linecap="round" style="filter:{{ g_glow }}"/>
+      {% endif %}
+
+      {% if lf > 0.003 %}
+      <path d="{{ valuearc(R_LOAD, lf, 'cw') }}" fill="none" stroke="#42A5F5" stroke-width="14" stroke-linecap="round" style="filter:drop-shadow(0 0 4px rgba(66,165,245,0.3))"/>
+      {% endif %}
+
+      <text x="{{ CX }}" y="{{ CY - 8 }}" text-anchor="middle" font-size="10" font-weight="600" letter-spacing="1" fill="#888" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif">BATTERY</text>
+      <text x="{{ CX }}" y="{{ CY + 16 }}" text-anchor="middle" font-size="24" font-weight="700" fill="{{ bw_tcol }}" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif">{{ batt_w | abs | round(0) | int }} W</text>
+
+      <text x="{{ CX }}" y="{{ CY + 40 }}" text-anchor="middle" font-size="10" font-weight="600" letter-spacing="1" fill="#888" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif">GRID</text>
+      <text x="{{ CX }}" y="{{ CY + 62 }}" text-anchor="middle" font-size="24" font-weight="700" fill="{{ g_tcol }}" font-family="-apple-system,BlinkMacSystemFont,Segoe UI,sans-serif">{{ grid_w | abs | round(0) | int }} W</text>
+
+    </svg>
+
+  </div>
+card_mod:
+  style: |
+    ha-card {
+      --ha-card-background: var(--card-background-color);
+    }
