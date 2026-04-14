@@ -1,0 +1,198 @@
+type: grid
+columns: 2
+square: false
+cards:
+  - type: custom:mushroom-template-card
+    primary: "{{ states('sensor.growatt_sph_grid_voltage') }} V"
+    secondary: Grid
+    icon: mdi:transmission-tower
+    icon_color: blue
+    layout: vertical
+  - type: custom:mushroom-template-card
+    primary: "{{ states('sensor.growatt_sph_device_mode') }}"
+    secondary: Inverter
+    icon: mdi:power-plug
+    color: green
+    vertical: true
+    features_position: bottom
+  - type: custom:mushroom-template-card
+    primary: "{{ states('sensor.growatt_sph_pv_power') }} W"
+    secondary: Solar PV
+    icon: mdi:solar-power
+    icon_color: amber
+    layout: vertical
+  - type: custom:mushroom-template-card
+    primary: "{{ states('sensor.growatt_sph_battery_state_of_charge') }} %"
+    secondary: Battery
+    icon: >-
+      {% set level = states('sensor.growatt_sph_battery_state_of_charge') |
+      int(0) %}{% if level >= 95 %}mdi:battery{% elif level >= 85
+      %}mdi:battery-90{% elif level >= 75 %}mdi:battery-80{% elif level >= 65
+      %}mdi:battery-70{% elif level >= 55 %}mdi:battery-60{% elif level >= 45
+      %}mdi:battery-50{% elif level >= 35 %}mdi:battery-40{% elif level >= 25
+      %}mdi:battery-30{% elif level >= 15 %}mdi:battery-20{% elif level >= 5
+      %}mdi:battery-10{% else %}mdi:battery-alert{% endif %}
+    icon_color: >-
+      {% set level = states('sensor.growatt_sph_battery_state_of_charge') |
+      int(0) %}{% if level >= 60 %}green{% elif level >= 30 %}amber{% else
+      %}red{% endif %}
+    layout: vertical
+  - type: custom:button-card
+    entity: sensor.growatt_sph_pv_power
+    show_name: false
+    show_state: false
+    show_icon: false
+    tap_action:
+      action: none
+    styles:
+      card:
+        - padding: 16px
+        - height: 160px
+      grid:
+        - display: flex
+        - justify-content: center
+        - align-items: center
+      custom_fields:
+        gauge:
+          - display: flex
+          - justify-content: center
+          - width: 100%
+    custom_fields:
+      gauge: >
+        [[[ const power =
+        parseFloat(states['sensor.growatt_sph_pv_power'].state) || 0; const
+        maxPower = 5000; const pct = Math.min(Math.abs(power) / maxPower, 1);
+        const rotation = pct * 180; return `<div
+        style='display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;'><div
+        style='position:relative;width:120px;height:60px;overflow:hidden;'><div
+        style='position:absolute;bottom:0;left:0;width:120px;height:60px;border-radius:120px
+        120px 0 0;background:#EAB308;'></div><div
+        style='position:absolute;bottom:0;left:0;width:120px;height:60px;border-radius:120px
+        120px 0 0;background:#e0e0e0;transform-origin:center
+        bottom;transform:rotate(${rotation}deg);'></div><div
+        style='position:absolute;bottom:0;left:12px;width:96px;height:48px;border-radius:96px
+        96px 0 0;background:var(--card-background-color);'></div></div><div
+        style='margin-top:8px;font-size:18px;font-weight:600;color:var(--primary-text-color);'>${power}
+        W</div><div
+        style='font-size:13px;color:var(--secondary-text-color);'>Solar
+        PV</div></div>`; ]]]
+  - type: custom:button-card
+    entity: sensor.growatt_sph_grid_power
+    show_name: false
+    show_state: false
+    show_icon: false
+    tap_action:
+      action: none
+    styles:
+      card:
+        - padding: 16px
+        - height: 160px
+      grid:
+        - display: flex
+        - justify-content: center
+        - align-items: center
+      custom_fields:
+        gauge:
+          - display: flex
+          - justify-content: center
+          - width: 100%
+    custom_fields:
+      gauge: >
+        [[[ const power =
+        parseFloat(states['sensor.growatt_sph_grid_power'].state) || 0; const
+        maxPower = 5000; const pct = Math.min(Math.abs(power) / maxPower, 1);
+        const rotation = pct * 180; const isNeg = power < 0; const flip = isNeg
+        ? 'transform:scaleX(-1);' : ''; return `<div
+        style='display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;'><div
+        style='position:relative;width:120px;height:60px;overflow:hidden;${flip}'><div
+        style='position:absolute;bottom:0;left:0;width:120px;height:60px;border-radius:120px
+        120px 0 0;background:#EF4444;'></div><div
+        style='position:absolute;bottom:0;left:0;width:120px;height:60px;border-radius:120px
+        120px 0 0;background:#e0e0e0;transform-origin:center
+        bottom;transform:rotate(${rotation}deg);'></div><div
+        style='position:absolute;bottom:0;left:12px;width:96px;height:48px;border-radius:96px
+        96px 0 0;background:var(--card-background-color);'></div></div><div
+        style='margin-top:8px;font-size:18px;font-weight:600;color:var(--primary-text-color);'>${power}
+        W</div><div
+        style='font-size:13px;color:var(--secondary-text-color);'>Grid</div></div>`;
+        ]]]
+  - type: custom:button-card
+    entity: sensor.growatt_sph_load_power
+    show_name: false
+    show_state: false
+    show_icon: false
+    tap_action:
+      action: none
+    styles:
+      card:
+        - padding: 16px
+        - height: 160px
+      grid:
+        - display: flex
+        - justify-content: center
+        - align-items: center
+      custom_fields:
+        gauge:
+          - display: flex
+          - justify-content: center
+          - width: 100%
+    custom_fields:
+      gauge: >-
+        [[[ const power =
+        parseFloat(states['sensor.growatt_sph_load_power'].state) || 0; const
+        maxPower = 5000; const pct = Math.min(Math.abs(power) / maxPower, 1);
+        const rotation = pct * 180; return `<div
+        style='display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;'><div
+        style='position:relative;width:120px;height:60px;overflow:hidden;'><div
+        style='position:absolute;bottom:0;left:0;width:120px;height:60px;border-radius:120px
+        120px 0 0;background:#3B82F6;'></div><div
+        style='position:absolute;bottom:0;left:0;width:120px;height:60px;border-radius:120px
+        120px 0 0;background:#e0e0e0;transform-origin:center
+        bottom;transform:rotate(${rotation}deg);'></div><div
+        style='position:absolute;bottom:0;left:12px;width:96px;height:48px;border-radius:96px
+        96px 0 0;background:var(--card-background-color);'></div></div><div
+        style='margin-top:8px;font-size:18px;font-weight:600;color:var(--primary-text-color);'>${power}
+        W</div><div
+        style='font-size:13px;color:var(--secondary-text-color);'>Load</div></div>`;
+        ]]]
+  - type: custom:button-card
+    entity: sensor.growatt_sph_battery_power
+    show_name: false
+    show_state: false
+    show_icon: false
+    tap_action:
+      action: none
+    styles:
+      card:
+        - padding: 16px
+        - height: 160px
+      grid:
+        - display: flex
+        - justify-content: center
+        - align-items: center
+      custom_fields:
+        gauge:
+          - display: flex
+          - justify-content: center
+          - width: 100%
+    custom_fields:
+      gauge: >-
+        [[[ const power =
+        parseFloat(states['sensor.growatt_sph_battery_power'].state) || 0; const
+        maxPower = 5000; const pct = Math.min(Math.abs(power) / maxPower, 1);
+        const rotation = pct * 180; const isNeg = power < 0; const color = isNeg
+        ? '#EF4444' : '#22C55E'; const flip = isNeg ? 'transform:scaleX(-1);' :
+        ''; return `<div
+        style='display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;'><div
+        style='position:relative;width:120px;height:60px;overflow:hidden;${flip}'><div
+        style='position:absolute;bottom:0;left:0;width:120px;height:60px;border-radius:120px
+        120px 0 0;background:${color};'></div><div
+        style='position:absolute;bottom:0;left:0;width:120px;height:60px;border-radius:120px
+        120px 0 0;background:#e0e0e0;transform-origin:center
+        bottom;transform:rotate(${rotation}deg);'></div><div
+        style='position:absolute;bottom:0;left:12px;width:96px;height:48px;border-radius:96px
+        96px 0 0;background:var(--card-background-color);'></div></div><div
+        style='margin-top:8px;font-size:18px;font-weight:600;color:var(--primary-text-color);'>${power}
+        W</div><div
+        style='font-size:13px;color:var(--secondary-text-color);'>Battery</div></div>`;
+        ]]]
